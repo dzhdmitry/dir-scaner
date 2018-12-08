@@ -1,0 +1,24 @@
+{
+    "name": "dzhdmitry/dir-scanner",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Dmitry Dzhuleba",
+            "email": "dzhdmitry@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Scanner\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "require": {
+        "symfony/console": "^4.2",
+        "symfony/polyfill-mbstring": "^1.10",
+        "symfony/validator": "^4.2",
+        "doctrine/annotations": "^1.6",
+        "doctrine/cache": "^1.8"
+    }
+}
