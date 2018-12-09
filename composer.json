@@ -19,6 +19,7 @@
         "symfony/polyfill-mbstring": "^1.10",
         "symfony/validator": "^4.2",
         "doctrine/annotations": "^1.6",
-        "doctrine/cache": "^1.8"
+        "doctrine/cache": "^1.8",
+        "ext-pdo": "*"
     }
 }

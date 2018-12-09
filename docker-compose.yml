@@ -8,6 +8,8 @@ services:
         volumes:
             - ./:/app
         working_dir: /app
+        env_file:
+            - .env
 
     postgres:
         image: postgres:9.6

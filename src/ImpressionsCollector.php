@@ -3,6 +3,7 @@
 namespace Scanner;
 
 use Scanner\DataTransfer\Impression;
+use Scanner\DataTransfer\Money;
 use Scanner\DataTransfer\Row;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Validator\ConstraintViolation;
@@ -15,27 +16,21 @@ class ImpressionsCollector
      */
     private $io;
 
-    /**
-     * @var \RecursiveIteratorIterator
-     */
-    private $iterator;
-
-    public function __construct(SymfonyStyle $io, string $directory)
+    public function __construct(SymfonyStyle $io)
     {
         $this->io = $io;
-        $iterator = new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS);
-        $this->iterator = new \RecursiveIteratorIterator($iterator);
     }
 
     /**
+     * @param string $directory
      * @return Impression[]
      */
-    public function collect(): array
+    public function collect(string $directory): array
     {
         /** @var Impression[] $impressionsByHash */
         $impressionsByHash = [];
 
-        foreach ($this->getImpressionsGenerator() as $impression) {
+        foreach ($this->getImpressionsGenerator($directory) as $impression) {
             $hash = $impression->getHashKey();
 
             if (array_key_exists($hash, $impressionsByHash)) {
@@ -49,15 +44,17 @@ class ImpressionsCollector
     }
 
     /**
+     * @param string $directory
      * @return \Generator|Impression[]
      */
-    private function getImpressionsGenerator()
+    private function getImpressionsGenerator(string $directory)
     {
+        $iterator = $this->createIterator($directory);
         $validator = Validation::createValidatorBuilder()
             ->enableAnnotationMapping()
             ->getValidator();
 
-        foreach ($this->iterator as $filename) {
+        foreach ($iterator as $filename) {
             if (pathinfo($filename, PATHINFO_EXTENSION) !== 'csv') {
                 continue;
             }
@@ -71,7 +68,7 @@ class ImpressionsCollector
                     if (count($data) !== 5) {
                         $this->invalidDataMessage('File must contain 5 columns', $filename);
 
-                        continue;
+                        break;
                     }
 
                     if ($i === 1) {
@@ -113,7 +110,7 @@ class ImpressionsCollector
                             ->setGeo($row->getGeo())
                             ->setZone(intval($row->getZone()))
                             ->setImpressions(intval($row->getImpressions()))
-                            ->setRevenue(floatval($row->getRevenue()));
+                            ->setRevenue(Money::fromString($row->getRevenue()));
                     } catch (\Exception $e) {
                         $this->invalidDataMessage('Cannot convert date', $filename);
 
@@ -134,10 +131,21 @@ class ImpressionsCollector
      */
     private function invalidDataMessage(string $message, string $filename)
     {
-        $this->io->warning(sprintf(
-            'Not valid data at file %s: %s',
+        $this->io->note(sprintf(
+            'Invalid data at file %s: %s',
             $filename,
             $message
         ));
+    }
+
+    /**
+     * @param string $directory
+     * @return \RecursiveIteratorIterator
+     */
+    private function createIterator(string $directory): \RecursiveIteratorIterator
+    {
+        $iterator = new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS);
+
+        return new \RecursiveIteratorIterator($iterator);
     }
 }

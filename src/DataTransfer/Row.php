@@ -14,7 +14,7 @@ class Row
 
     /**
      * @Assert\NotBlank()
-     * @Assert\Regex("/^\S{2}$/")
+     * @Assert\Regex("/^\S+$/")
      */
     private $geo;
 

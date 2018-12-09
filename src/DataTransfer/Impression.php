@@ -25,7 +25,7 @@ class Impression
     private $impressions;
 
     /**
-     * @var float
+     * @var Money
      */
     private $revenue;
 
@@ -106,18 +106,18 @@ class Impression
     }
 
     /**
-     * @return float
+     * @return Money
      */
-    public function getRevenue(): float
+    public function getRevenue(): Money
     {
         return $this->revenue;
     }
 
     /**
-     * @param float $revenue
+     * @param Money $revenue
      * @return Impression
      */
-    public function setRevenue(float $revenue): Impression
+    public function setRevenue(Money $revenue): Impression
     {
         $this->revenue = $revenue;
 
@@ -144,7 +144,7 @@ class Impression
     public function add(Impression $impression): Impression
     {
         $this->setImpressions($this->impressions + $impression->getImpressions());
-        $this->setRevenue($this->revenue + $impression->getRevenue());
+        $this->revenue->modify($impression->getRevenue());
 
         return $this;
     }

@@ -23,7 +23,6 @@ class ScanCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $io = new SymfonyStyle($input, $output);
-        $db = new DatabaseConnection('postgres', '5432', 'scanner', 'postgres', null);
         $directory = $input->getArgument('directory');
 
         if (!is_dir($directory)) {
@@ -32,37 +31,63 @@ class ScanCommand extends Command
             return null;
         }
 
-        $collector = new ImpressionsCollector($io, $directory);
-        $repository = new ImpressionRepository($db);
+        $collector = new ImpressionsCollector($io);
+        $db = new DatabaseConnection(
+            getenv('DATABASE_HOST'),
+            getenv('DATABASE_PORT'),
+            getenv('DATABASE_NAME'),
+            getenv('DATABASE_USER'),
+            getenv('DATABASE_PASSWORD')
+        );
 
-        foreach ($collector->collect() as $impression) {
-            $statement = $db->prepare('START TRANSACTION');
-            $statement->execute();
+        $start = $db->prepare('START TRANSACTION');
+        $commit = $db->prepare('COMMIT');
+        $rollback = $db->prepare('ROLLBACK');
+
+        $select = $db->prepare('SELECT id FROM impressions 
+            WHERE date = :date AND geo = :geo AND zone = :zone
+            FOR UPDATE 
+            LIMIT 1');
+
+        $update = $db->prepare('UPDATE impressions
+            SET impressions = impressions + :impressions, revenue = revenue + :revenue 
+            WHERE id = :id');
+
+        $insert = $db->prepare('INSERT INTO impressions
+            (date, geo, zone, impressions, revenue)
+            VALUES (:date, :geo, :zone, :impressions, :revenue)');
+
+        foreach ($collector->collect($directory) as $impression) {
+            $start->execute();
 
             try {
-                $existing = $repository->find($impression->getDate(), $impression->getGeo(), $impression->getZone());
+                $select->execute([
+                    'date' => $impression->getDate()->format('Y-m-d'),
+                    'geo' => $impression->getGeo(),
+                    'zone' => $impression->getZone()
+                ]);
 
-                if ($existing) {
-                    $repository->update(
-                        $existing['id'],
-                        $existing['impressions'] + $impression->getImpressions(),
-                        floatval($existing['revenue']) + $impression->getRevenue()
-                    );
+                $existing = $select->fetchAll(\PDO::FETCH_COLUMN);
+
+                if (count($existing) !== 0) {
+                    $update->execute([
+                        'id' => $existing[0],
+                        'impressions' => $impression->getImpressions(),
+                        'revenue' => $impression->getRevenue()->getValue()
+                    ]);
                 } else {
-                    $repository->insert(
-                        $impression->getDate(),
-                        $impression->getGeo(),
-                        $impression->getZone(),
-                        $impression->getImpressions(),
-                        $impression->getRevenue()
-                    );
+                    $insert->execute([
+                        'date' => $impression->getDate()->format('Y-m-d'),
+                        'geo' => $impression->getGeo(),
+                        'zone' => $impression->getZone(),
+                        'impressions' => $impression->getImpressions(),
+                        'revenue' => $impression->getRevenue()->getValue()
+                    ]);
                 }
 
-                $statement = $db->prepare('COMMIT');
-                $statement->execute();
+                $commit->execute();
             } catch (\PDOException $e) {
-                $statement = $db->prepare('ROLLBACK');
-                $statement->execute();
+                $rollback->execute();
             }
         }
 
